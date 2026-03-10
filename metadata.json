@@ -1,0 +1,5 @@
+{
+  "name": "Lyrics PPT Maker",
+  "description": "A minimalist web application that converts lyrics and background images into a presentation slide deck.",
+  "requestFramePermissions": []
+}
