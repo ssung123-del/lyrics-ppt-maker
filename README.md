@@ -1,20 +1,201 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# Lyrics PPT Maker
 
-# Run and deploy your AI Studio app
+가사와 배경 이미지를 조합해 `.pptx` 파일을 만드는 React 기반 웹 앱입니다.
 
-This contains everything you need to run your app locally.
+이 프로젝트는 현재 AI API를 사용하지 않습니다. `OpenAI`, `Gemini`, 기타 외부 모델 토큰 없이 브라우저 안에서만 동작합니다.
 
-View your app in AI Studio: https://ai.studio/apps/067f1adc-cd49-42b9-9371-b48f74abf3be
+## 무엇을 하는 앱인가
 
-## Run Locally
+- 가사를 입력하면 빈 줄 기준으로 슬라이드를 자동 분리합니다.
+- 배경 이미지를 업로드해서 각 슬라이드의 공통 배경으로 적용할 수 있습니다.
+- 웹 미리보기에서 실제 PPT와 비슷한 비율, 여백, 폰트 크기 감각을 확인할 수 있습니다.
+- 결과물을 `.pptx` 파일로 바로 다운로드할 수 있습니다.
 
-**Prerequisites:**  Node.js
+## 현재 상태
 
+- AI 토큰 필요 없음
+- 서버 사이드 API 호출 없음
+- 클라이언트에서 PPT 생성
+- 기본 웹 폰트: `Pretendard`
+- 기본 PPT 폰트 설정: `Pretendard`
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+주의:
+- 다운로드한 PPT를 여는 PC에 `Pretendard`가 설치되어 있지 않으면 PowerPoint에서 대체 폰트로 표시될 수 있습니다.
+
+## 기술 스택
+
+- `React 19`
+- `TypeScript`
+- `Vite`
+- `Tailwind CSS v4`
+- `react-hook-form`
+- `pptxgenjs`
+
+## 빠른 실행
+
+### 요구 사항
+
+- `Node.js` 20 이상 권장
+- `npm`
+
+### 설치
+
+```bash
+npm install
+```
+
+### 개발 서버 실행
+
+```bash
+npm run dev
+```
+
+기본 주소:
+
+```text
+http://localhost:3000
+```
+
+### 프로덕션 빌드
+
+```bash
+npm run build
+```
+
+### 로컬 타입 체크
+
+```bash
+npm run lint
+```
+
+### 테스트 실행
+
+```bash
+npm test
+```
+
+## 사용 방법
+
+1. 왼쪽 입력창에 가사를 붙여넣습니다.
+2. 슬라이드를 나누고 싶은 위치마다 빈 줄을 하나 넣습니다.
+3. 필요하면 배경 이미지를 업로드합니다.
+4. 글자색, 그림자, 폰트 크기를 조절합니다.
+5. 오른쪽 미리보기에서 슬라이드별 결과를 확인합니다.
+6. `PPT 다운로드`를 눌러 파일을 생성합니다.
+
+## 가사 분리 규칙
+
+가사는 `빈 줄(엔터 2번)` 기준으로 슬라이드가 나뉩니다.
+
+예시:
+
+```text
+여기에 첫 번째 슬라이드 가사
+한 줄 더
+
+여기부터 두 번째 슬라이드
+
+여기부터 세 번째 슬라이드
+```
+
+결과:
+
+- 슬라이드 1: `여기에 첫 번째 슬라이드 가사 / 한 줄 더`
+- 슬라이드 2: `여기부터 두 번째 슬라이드`
+- 슬라이드 3: `여기부터 세 번째 슬라이드`
+
+## 미리보기와 실제 PPT 매칭 방식
+
+이 앱은 웹 미리보기가 실제 PPT와 최대한 비슷하게 보이도록 몇 가지 값을 공유합니다.
+
+- 슬라이드 비율: `16:9`
+- 텍스트 박스 여백: 상하좌우 `5%`
+- 텍스트 박스 영역: `90% x 90%`
+- 줄간격: `1.2`
+- 자간: 웹과 PPT가 유사하게 맞춰져 있음
+- 폰트 크기: PPT 기준 `pt` 값을 슬라이드 높이에 맞춰 미리보기로 환산
+
+즉, 창을 줄였을 때도 미리보기 글자는 슬라이드 컨테이너 크기를 따라 같이 줄어들어야 합니다.
+
+## 파일 구조
+
+```text
+src/
+  App.tsx                   메인 UI
+  main.tsx                  앱 엔트리
+  index.css                 전역 스타일 및 웹 폰트
+  utils/
+    lyricsParser.ts         가사 -> 슬라이드 배열 변환
+    pptGenerator.ts         PPT 생성
+    pptTypography.ts        PPT/미리보기 공통 타이포그래피 기준값
+    pptTypography.test.ts   타이포그래피 기준값 테스트
+```
+
+## 핵심 동작 설명
+
+### 1. 가사 파싱
+
+[`src/utils/lyricsParser.ts`](./src/utils/lyricsParser.ts)
+
+- 입력 문자열을 받습니다.
+- `빈 줄` 기준으로 분리합니다.
+- 앞뒤 공백을 정리합니다.
+- 비어 있는 슬라이드는 제거합니다.
+
+### 2. PPT 생성
+
+[`src/utils/pptGenerator.ts`](./src/utils/pptGenerator.ts)
+
+- `pptxgenjs`로 16:9 PPT를 생성합니다.
+- 배경 이미지가 있으면 모든 슬라이드에 적용합니다.
+- 이미지가 없으면 기본 다크 배경을 사용합니다.
+- 텍스트 정렬, 폰트 크기, 그림자, 자간, 줄간격을 반영합니다.
+
+### 3. 미리보기 타이포그래피
+
+[`src/utils/pptTypography.ts`](./src/utils/pptTypography.ts)
+
+- PPT와 웹 미리보기가 같은 기준값을 쓰도록 상수를 분리했습니다.
+- 웹 쪽은 `container query` 기반으로 폰트 크기를 슬라이드 크기에 맞춰 계산합니다.
+
+## 환경 변수
+
+현재 필수 환경 변수는 없습니다.
+
+`.env.example`은 다음 의미만 가집니다.
+
+- 이 프로젝트는 외부 API 키 없이 동작한다는 사실을 명시
+
+## 제한 사항
+
+- 현재는 슬라이드별 개별 배경이 아니라 하나의 공통 배경 이미지만 지원합니다.
+- PowerPoint의 실제 줄바꿈 규칙과 브라우저 줄바꿈은 완전히 동일하지 않을 수 있습니다.
+- `Pretendard` 미설치 환경에서는 PPT에서 대체 폰트가 적용될 수 있습니다.
+- 업로드 이미지는 현재 `8MB` 이하만 허용합니다.
+
+## 추천 워크플로우
+
+- 예배용 가사:
+  밝기가 너무 높은 사진보다는 어두운 이미지나 블러된 배경이 안정적입니다.
+- 자막 중심 발표:
+  `White + Shadow On` 조합이 대부분의 배경에서 안전합니다.
+- 인쇄나 프로젝터 테스트:
+  최종 사용 PC에서 `Pretendard` 설치 여부를 확인하는 편이 좋습니다.
+
+## 개발 메모
+
+- 현재 코드에는 과거 AI Studio 스캐폴드 흔적이 일부 제거된 상태입니다.
+- 실제 런타임 경로에서는 AI 호출이 없습니다.
+- 문서와 설정은 현재 구현 기준으로 정리되어 있습니다.
+
+## 배포 전 체크리스트
+
+- `npm test`
+- `npm run lint`
+- `npm run build`
+- 브라우저에서 `localhost:3000` 확인
+- 생성된 `.pptx`를 실제 PowerPoint에서 열어 폰트와 줄바꿈 확인
+
+## 저장소
+
+- GitHub: [ssung123-del/lyrics-ppt-maker](https://github.com/ssung123-del/lyrics-ppt-maker)
