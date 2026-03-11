@@ -1,6 +1,15 @@
 import React, { useDeferredValue, useEffect, useRef, useState } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
-import { AlignCenter, Download, Image as ImageIcon, Type } from 'lucide-react';
+import {
+  AlignCenter,
+  Check,
+  Copy,
+  Download,
+  Image as ImageIcon,
+  Sparkles,
+  Type,
+} from 'lucide-react';
+import { buildBackgroundPrompt } from './utils/backgroundPrompt';
 import { parseLyricsToSlides } from './utils/lyricsParser';
 import { generatePPT } from './utils/pptGenerator';
 import {
@@ -32,9 +41,11 @@ export default function App() {
   });
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const copyResetTimeoutRef = useRef<number | null>(null);
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [currentPreviewSlide, setCurrentPreviewSlide] = useState(0);
+  const [isPromptCopied, setIsPromptCopied] = useState(false);
 
   const lyrics = useWatch({ control, name: 'lyrics' });
   const fontColor = useWatch({ control, name: 'fontColor' });
@@ -42,12 +53,21 @@ export default function App() {
   const fontSize = useWatch({ control, name: 'fontSize' });
   const deferredLyrics = useDeferredValue(lyrics || '');
   const slides = parseLyricsToSlides(deferredLyrics);
+  const promptResult = buildBackgroundPrompt(deferredLyrics);
 
   useEffect(() => {
     if (currentPreviewSlide >= slides.length && slides.length > 0) {
       setCurrentPreviewSlide(slides.length - 1);
     }
   }, [slides.length, currentPreviewSlide]);
+
+  useEffect(() => {
+    return () => {
+      if (copyResetTimeoutRef.current !== null) {
+        window.clearTimeout(copyResetTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -95,6 +115,24 @@ export default function App() {
     }
   };
 
+  const handleCopy = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setIsPromptCopied(true);
+
+      if (copyResetTimeoutRef.current !== null) {
+        window.clearTimeout(copyResetTimeoutRef.current);
+      }
+
+      copyResetTimeoutRef.current = window.setTimeout(() => {
+        setIsPromptCopied(false);
+      }, 1600);
+    } catch (error) {
+      console.error('Failed to copy prompt:', error);
+      alert('프롬프트 복사에 실패했습니다.');
+    }
+  };
+
   const previewBackgroundStyle = uploadedImage
     ? {
         backgroundImage: `url(${uploadedImage})`,
@@ -115,7 +153,7 @@ export default function App() {
           <p className="text-[11px] uppercase tracking-[0.3em] text-amber-300">Lyrics Stage Builder</p>
           <h1 className="text-3xl font-semibold tracking-tight text-white">이미지로 만드는 가사 PPT</h1>
           <p className="text-sm text-zinc-400">
-            배경 이미지를 올리고 미리본 뒤 그대로 PPT로 내보냅니다.
+            가사 가독성을 우선한 배경 프롬프트를 만들고, 이미지를 올려 그대로 PPT로 내보냅니다.
           </p>
         </div>
 
@@ -133,6 +171,50 @@ export default function App() {
             <div className="flex items-center justify-between text-xs text-zinc-500">
               <span>총 {slides.length}개의 슬라이드가 생성됩니다.</span>
               <span>{uploadedImage ? '이미지 배경 적용됨' : '기본 다크 배경 사용 중'}</span>
+            </div>
+          </div>
+
+          <div className="rounded-[28px] border border-amber-300/15 bg-[linear-gradient(180deg,rgba(250,204,21,0.08),rgba(255,255,255,0.03))] p-5 shadow-[0_20px_60px_rgba(0,0,0,0.18)]">
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-zinc-100 flex items-center gap-2">
+                <Sparkles size={16} />
+                배경 이미지 프롬프트
+              </label>
+              <p className="text-xs leading-5 text-zinc-400">
+                가사에서 핵심 키워드를 뽑되, 중앙 여백과 낮은 디테일을 우선하는 배경용 프롬프트를 만듭니다.
+              </p>
+            </div>
+
+            <div className="mt-4 flex flex-wrap gap-2">
+              {promptResult.keywords.map((keyword) => (
+                <span
+                  key={keyword}
+                  className="rounded-full border border-white/10 bg-white/[0.05] px-3 py-1.5 text-xs text-zinc-200"
+                >
+                  {keyword}
+                </span>
+              ))}
+            </div>
+
+            <div className="mt-4 space-y-4">
+              <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+                <div className="mb-2 flex items-center justify-between gap-3">
+                  <span className="text-xs uppercase tracking-[0.2em] text-zinc-500">Background prompt</span>
+                  <button
+                    type="button"
+                    onClick={() => handleCopy(promptResult.koreanPrompt)}
+                    className="inline-flex items-center gap-2 rounded-full border border-white/10 px-3 py-1.5 text-xs text-zinc-200 transition hover:border-amber-300/40 hover:text-white"
+                  >
+                    {isPromptCopied ? <Check size={14} /> : <Copy size={14} />}
+                    {isPromptCopied ? '복사됨' : '복사'}
+                  </button>
+                </div>
+                <textarea
+                  readOnly
+                  value={promptResult.koreanPrompt}
+                  className="min-h-28 w-full resize-none rounded-xl border border-white/8 bg-white/[0.03] p-3 text-sm leading-6 text-zinc-100 outline-none"
+                />
+              </div>
             </div>
           </div>
 
